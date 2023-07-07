@@ -1,3 +1,3 @@
 ### Amusik
 
-##Discord bot for our server 
+## Discord bot for our server 
