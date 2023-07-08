@@ -15,6 +15,10 @@ intents.members = True
 
 bot = commands.Bot(command_prefix=config['prefix'], intents=intents)
 
+@bot.hybrid_command()
+async def test(ctx):
+    await ctx.send("This is a hybrid command!")
+
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user.name}')
@@ -30,27 +34,64 @@ async def remove(ctx):
     await channel.send('⬅ Чамба хуямба покинул сервер.')
 
 @bot.command()
+async def mon(ctx):
+    await ctx.send(f'На сервере {ctx.guild.member_count} чумб.')
+
+
+
+@bot.command()
 async def hello(ctx):
     await ctx.send("Hello")
     
 @bot.command()
 async def join(ctx):
-    ctx.send("Joined voice channel!")
+    # await ctx.send("```Joined voice channel!```")
     channel = ctx.author.voice.channel
     await channel.connect()
 
+# @bot.command()
+# async def leave(ctx):
+#     await ctx.send("Left voice channel!")
+#     await ctx.voice_client.disconnect()
+
+@bot.command()
+async def play(ctx, url):
+    voice_channel = ctx.author.voice.channel
+    voice_client = await voice_channel.connect()
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+    }
+
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+        url2 = info['formats'][0]['url']
+        voice_client.play(discord.FFmpegPCMAudio(url2))
+
 @bot.command()
 async def leave(ctx):
-    ctx.send("Left voice channel!")
-    await ctx.voice_client.disconnect()
+    voice_client = ctx.voice_client
+    if voice_client.is_connected():
+        await ctx.send("Left voice channel!")
+        await voice_client.disconnect()
 
-@bot.command(pass_context=True)
-async def play(ctx, url):
-    author = ctx.author
-    voice_channel = author.voice.channel
-    vc = await voice_channel.connect()
-    player = await vc.create_ytdl_player(url)
-    player.start()
+
+
+# @bot.event()
+# async def on_voice_status_update(member,before,after):
+#     if member.bot and before.channel:
+#          #проверяет что этот челик ботик или намик
+#          voice_state = member.guild.voice_client
+# # Ппроверяет остался ли он в канале
+#         if voice_state and not voice_state.channel.members:
+#             # Проверяем сколько времени прошло с захода 
+#             if voice_state.idle() and voice_state.idle() > 1800:  # 1800 секунд = 30 минут
+#                 await voice_state.disconnect()
 
 bot.run(config['token'])
 
