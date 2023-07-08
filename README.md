@@ -1,4 +1,4 @@
 # Amusik
 
 ## Discord bot for our server 
-https://discord.com/amigos228
+https://discord.com/invite/amigos228
