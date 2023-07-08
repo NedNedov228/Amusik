@@ -6,7 +6,7 @@ import youtube_dl
 
 
 config = {
-    'token': 'MTEyNjk4NDAzNzI5NTIxNDYzMg.GxMArX.ZfidE3cgYcXIb7RqhAOd3FfQdJBKvM6IaGO4lM',
+    'token': '-TOKEN-',
     'prefix': '.',
 }
 
@@ -15,7 +15,19 @@ intents.members = True
 
 bot = commands.Bot(command_prefix=config['prefix'], intents=intents)
 
+@bot.event
+async def on_ready():
+    print(f'Logged in as {bot.user.name}')
 
+@bot.event
+async def on_member_remove(member):
+    channel = discord.utils.get(member.guild.text_channels, name='𝗦𝘆𝘀𝘁𝗲𝗺𝗘𝗰𝗵𝗼')
+    await channel.send(f'⬅ {member.name} покинул сервер.')
+
+@bot.command()
+async def remove(ctx):
+    channel = discord.utils.get(ctx.guild.text_channels, name='𝗦𝘆𝘀𝘁𝗲𝗺𝗘𝗰𝗵𝗼')
+    await channel.send('⬅ Чамба хуямба покинул сервер.')
 
 @bot.command()
 async def hello(ctx):
@@ -31,6 +43,14 @@ async def join(ctx):
 async def leave(ctx):
     ctx.send("Left voice channel!")
     await ctx.voice_client.disconnect()
+
+@bot.command(pass_context=True)
+async def play(ctx, url):
+    author = ctx.author
+    voice_channel = author.voice.channel
+    vc = await voice_channel.connect()
+    player = await vc.create_ytdl_player(url)
+    player.start()
 
 bot.run(config['token'])
 
