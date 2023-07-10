@@ -124,9 +124,10 @@ async def play(ctx: commands.Context, *args):
                 url = f'https://youtu.be/{info["id"]}',
                 # description='Upload date: ' + info['upload_date'],
                 description='''
-                
-                
-                
+
+                now playing
+
+
                 ''',
 
                 color=discord.Color.darker_grey()
@@ -147,12 +148,12 @@ def get_voice_client_from_channel_id(channel_id: int):
     for voice_client in bot.voice_clients:
         if voice_client.channel.id == channel_id:
             return voice_client
-@bot.command()
+@bot.command(name='disconnect', aliases=['dc'])
 async def leave(ctx):
     voice_client = ctx.voice_client
     if voice_client.is_connected():
-        await ctx.send("Left voice channel!")
         await voice_client.disconnect()
+    await ctx.message.add_reaction("\u2705")
 
 
 
