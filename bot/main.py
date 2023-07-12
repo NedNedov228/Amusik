@@ -1,5 +1,3 @@
-
-
 import functions as f
 
 import re
@@ -14,14 +12,21 @@ import shutil
 import sys
 import subprocess as sp
 
-queues = {} # {server_id: [(vid_file, info), ...]}
+queues = {} # {server_id: [(vid_file, info), ...]}ч
 
+queue  = [] # [(vid_file, info), ...]
+
+connection = None
+
+currently_playing = None
+currently_active_message = None
 
 config = {
-    'token': '-TOKEN-',
+    'token': '-Token-',
     'prefix': '.',
 }
 
+loopedCurr = False
 intents = discord.Intents.all()
 intents.members = True
 
@@ -35,7 +40,6 @@ async def test(ctx):
 async def on_ready():
     print(f'Logged in as {bot.user.name}')
     
-
 
 @bot.event
 async def on_member_remove(member):
@@ -52,20 +56,80 @@ async def mon(ctx):
     await ctx.send(f'На сервере {ctx.guild.member_count} чумб.')
 
 
+# @bot.command(help = "Показывает пинг бота")
+# async def hello(ctx):
+#     await ctx.send("Hello")
 
-@bot.command()
-async def hello(ctx):
-    await ctx.send("Hello")
+@bot.command(name="queue", help = "Показывает пинг бота")
+async def queue_command(ctx, *args):
+    global queue
+    global currently_playing
+    if len(args) != 1:
+        await ctx.send("Invalid arguments")
+        return
+    if args[0] == "clear":
+        queue.clear()
+        await ctx.message.add_reaction("\u2705")
+        for f in os.listdir(f'./dl/{ctx.guild.id}'):
+            if(f'./dl/{ctx.guild.id}/{f}' != currently_playing[0]):
+                os.remove(f'./dl/{ctx.guild.id}/{f}')
+        return
     
-@bot.command()
+@bot.command(help = "Показывает пинг бота")
 async def join(ctx):
     channel = ctx.author.voice.channel
     await channel.connect()
 
 
+async def is_link(str):
+    return re.match(r'^https?:\/\/(www\.)?youtube\.com\/watch\?v=[\w-]+$', str) is not None
+
+@bot.command(name = 'skip')
+async def skip(ctx: commands.Context):
+    global currently_active_message
+    if ctx.voice_client is None:
+        await ctx.send('Not connected')
+        return
+    if ctx.voice_client.is_playing():
+        ctx.voice_client.stop()
+    # if currently_active_message is not None:
+    #     currently_active_message.delete()
+
+async def run_queue(ctx: commands.Context):
+    global connection
+    global loopedCurr
+    global queue
+    global currently_playing
+    global currently_active_message
+    while 1:
+        if len(queue) > 0 or loopedCurr:
+            if connection is None or not connection.is_playing():
+                if loopedCurr: 
+                    path , info = currently_playing
+                else:
+                    path, info = queue.pop(0)
+                    currently_playing = (path, info)
+                if currently_active_message is not None:
+                    await currently_active_message.delete()
+                connection.play(discord.FFmpegOpusAudio(path))
+                embed = f.createEmbed(info)
+                currently_active_message = await ctx.send(embed=embed)
+        await asyncio.sleep(1)
 
 @bot.command(name='play', aliases=['p'])
 async def play(ctx: commands.Context, *args):
+    global connection
+    global queue
+    # check if no arguments
+    if len(args) == 0:
+        await ctx.send('No arguments')
+        return
+    
+    # check if in voice channel
+    if ctx.author.voice is None:
+        await ctx.send('You are not in a voice channel')
+        return
+
     voice_state = ctx.author.voice
 
     query = ' '.join(args)
@@ -93,46 +157,29 @@ async def play(ctx: commands.Context, *args):
         if 'entries' in info:
             info = info['entries'][0]
        
-        message = await ctx.send('downloading ' + (f'https://youtu.be/{info["id"]}' if will_need_search else f'`{info["title"]}`'))
-        
-        
+        info['requester'] = ctx.author
 
+        path = f'./dl/{server_id}/{info["id"]}.{info["ext"]}'
+       
+        await ctx.send(f'Enqueued `{info["title"]}` in position `{len(queue)+1}`.')
+        message = await ctx.send('downloading ' + (f'https://youtu.be/{info["id"]}' if will_need_search else f'`{info["title"]}`'))
+         
         ydl.download([query])
         
         await message.delete()
+
+        queue.append((path, info))
         
-        path = f'./dl/{server_id}/{info["id"]}.{info["ext"]}'
         try: queues[server_id].append((path, info))
         except KeyError: 
             queues[server_id] = [(path, info)]
-            try: connection = await voice_state.channel.connect()
-            except discord.ClientException: connection = get_voice_client_from_channel_id(voice_state.channel.id)
-            connection.play(discord.FFmpegOpusAudio(path))
-
+            try: 
+                connection = await voice_state.channel.connect()
+                await run_queue(ctx)
+            except discord.ClientException: 
+                connection = get_voice_client_from_channel_id(voice_state.channel.id)
           
-            embed = discord.Embed(
-                title= info["title"],
-                url = f'https://youtu.be/{info["id"]}',
-                # description='Upload date: ' + info['upload_date'],
-                description='''
-
-                now playing
-
-
-                ''',
-
-                color=discord.Color.darker_grey()
-            )
- 
-            embed.set_author(name=info['uploader'])
-            embed.set_thumbnail(url= f.get_video_icon(f'https://youtu.be/{info["id"]}'))
-            embed.add_field(name="Duration", value=f.seconds_to_time(info['duration']), inline=True)
-            embed.add_field(name="Requested by", value=f"{ctx.author.name}", inline=True)
-            embed.set_footer(text="© 2023 XYECoC inc.")
-
-            message = await ctx.send(embed=embed)
-            await asyncio.sleep(info['duration']+1)
-            await message.delete()
+            # await message.delete()
             
             
 def get_voice_client_from_channel_id(channel_id: int):
@@ -145,8 +192,24 @@ async def leave(ctx):
     if voice_client.is_connected():
         await voice_client.disconnect()
     await ctx.message.add_reaction("\u2705")
-
-
+@bot.command(name='loop', aliases=['repeat,rep,lp,rp'])
+async def loop(ctx: commands.Context, *args):
+    global loopedCurr
+    if len(args) != 1:
+        await ctx.send('Invalid arguments')
+        return
+    arg = args[0]
+    loop_words = ['on', 'true', '1', 'one', 'all']
+    unloop_words = ['off', 'false', '0', 'zero', 'none']
+    if arg in loop_words:
+        loopedCurr = True
+    elif arg in unloop_words:
+        loopedCurr = False
+    await ctx.message.add_reaction("\u2705")
+    await ctx.send(f"Looping is {'enabled' if loopedCurr else 'disabled'}")
+    
+bot.load_extension("ccommands")
+bot.run(config['token'])
 
 # @bot.event()
 # async def on_voice_status_update(member,before,after):
@@ -158,6 +221,4 @@ async def leave(ctx):
 #             # Проверяем сколько времени прошло с захода 
 #             if voice_state.idle() and voice_state.idle() > 1800:  # 1800 секунд = 30 минут
 #                 await voice_state.disconnect()
-
-bot.run(config['token'])
 

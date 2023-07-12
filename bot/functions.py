@@ -1,4 +1,5 @@
 from pytube import YouTube
+import discord
 
 def get_video_icon(url):
     try:
@@ -16,3 +17,27 @@ def seconds_to_time(seconds):
     seconds = int(seconds % 60)
 
     return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+
+def createEmbed(info):
+    embed = discord.Embed(
+                title= info["title"],
+                url = f'https://youtu.be/{info["id"]}',
+                # description='Upload date: ' + info['upload_date'],
+                description='''
+
+                now playing
+
+
+                ''',
+
+                color=discord.Color.darker_grey()
+            )
+ 
+    embed.set_author(name=info['uploader'])
+    embed.set_thumbnail(url= get_video_icon(f'https://youtu.be/{info["id"]}'))
+    embed.add_field(name="Duration", value=seconds_to_time(info['duration']), inline=True)
+    embed.add_field(name="Requested by", value=info['requester'], inline=True)
+    embed.set_footer(text="© 2023 XYECoC inc.")
+    
+    return embed
