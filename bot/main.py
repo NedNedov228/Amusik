@@ -210,7 +210,7 @@ async def loop(ctx: commands.Context, *args):
     
 bot.load_extension("ccommands")
 bot.run(config['token'])
-
+# talibans mom
 # @bot.event()
 # async def on_voice_status_update(member,before,after):
 #     if member.bot and before.channel:
