@@ -18,7 +18,7 @@ queues = {} # {server_id: [(vid_file, info), ...]}
 
 
 config = {
-    'token': 'MTEyNjk4NDAzNzI5NTIxNDYzMg.GcFqYs.xt0HgoEw07-gSROK7tvoUokpCpMqAaCB-c_4oo',
+    'token': '-TOKEN-',
     'prefix': '.',
 }
 
