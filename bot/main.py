@@ -1,5 +1,4 @@
 import functions as f
-
 import re
 import discord
 from discord.ext import commands
@@ -11,7 +10,8 @@ import os
 import shutil
 import sys
 import subprocess as sp
-
+#by b1tz0 und FontomO4ka
+# Special thanks to Dzinski!
 queues = {} # {server_id: [(vid_file, info), ...]}ч
 
 queue  = [] # [(vid_file, info), ...]
@@ -22,7 +22,7 @@ currently_playing = None
 currently_active_message = None
 
 config = {
-    'token': '-Token-',
+    'token': 'MTEyNjk4NDAzNzI5NTIxNDYzMg.Gpszs1.kqN_MbNWnof5L1m-qTWYYmi0-HLXJEqxR43fEw',
     'prefix': '.',
 }
 
@@ -104,6 +104,7 @@ async def run_queue(ctx: commands.Context):
     while 1:
         if len(queue) > 0 or loopedCurr:
             if connection is None or not connection.is_playing():
+                print('playing queue')
                 if loopedCurr: 
                     path , info = currently_playing
                 else:
@@ -111,6 +112,7 @@ async def run_queue(ctx: commands.Context):
                     currently_playing = (path, info)
                 if currently_active_message is not None:
                     await currently_active_message.delete()
+                print(f'playing {info["title"]}')
                 connection.play(discord.FFmpegOpusAudio(path))
                 embed = f.createEmbed(info)
                 currently_active_message = await ctx.send(embed=embed)
@@ -165,7 +167,7 @@ async def play(ctx: commands.Context, *args):
         message = await ctx.send('downloading ' + (f'https://youtu.be/{info["id"]}' if will_need_search else f'`{info["title"]}`'))
          
         ydl.download([query])
-        
+        print(f'finished downloading {info["title"]}')
         await message.delete()
 
         queue.append((path, info))
@@ -192,6 +194,7 @@ async def leave(ctx):
     if voice_client.is_connected():
         await voice_client.disconnect()
     await ctx.message.add_reaction("\u2705")
+
 @bot.command(name='loop', aliases=['repeat,rep,lp,rp'])
 async def loop(ctx: commands.Context, *args):
     global loopedCurr
