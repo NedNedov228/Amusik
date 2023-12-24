@@ -1,5 +1,4 @@
 import functions as f
-
 import re
 import discord
 from discord.ext import commands
@@ -12,7 +11,8 @@ import shutil
 import sys
 import atexit
 import subprocess as sp
-from dotenv import load_dotenv
+#by b1tz0 und FontomO4ka
+# Special thanks to Dzinski!from dotenv import load_dotenv
 
 
 
@@ -34,7 +34,7 @@ load_dotenv()
 token = os.environ.get('DISCORD_BOT_TOKEN')
 
 config = {
-    'token': token,
+    'token': '-Token-',
     'prefix': '.',
 }
 
@@ -128,6 +128,7 @@ async def run_queue(ctx: commands.Context):
     while 1:
         if len(queue) > 0 or loopedCurr:
             if connection is None or not connection.is_playing():
+                print('playing queue')
                 if loopedCurr: 
                     path , info = currently_playing
                 else:
@@ -136,6 +137,7 @@ async def run_queue(ctx: commands.Context):
                     currently_playing_index += 1
                 if currently_active_message is not None:
                     await currently_active_message.delete()
+                print(f'playing {info["title"]}')
                 connection.play(discord.FFmpegOpusAudio(path))
                 embed = f.createEmbed(info)
                 currently_active_message = await ctx.send(embed=embed)
@@ -220,7 +222,7 @@ async def play(ctx: commands.Context, *args):
         message = await ctx.send('downloading ' + (f'https://youtu.be/{info["id"]}' if will_need_search else f'`{info["title"]}`'))
          
         ydl.download([query])
-        
+        print(f'finished downloading {info["title"]}')
         await message.delete()
 
         queue.append((path, info))
@@ -268,8 +270,6 @@ async def loop(ctx: commands.Context, *args):
     
 bot.load_extension("ccommands")
 bot.run(config['token'])
-
-
 
 # @bot.event()
 # async def on_voice_status_update(member,before,after):
