@@ -22,7 +22,7 @@ currently_playing = None
 currently_active_message = None
 
 config = {
-    'token': 'MTEyNjk4NDAzNzI5NTIxNDYzMg.Gpszs1.kqN_MbNWnof5L1m-qTWYYmi0-HLXJEqxR43fEw',
+    'token': 'token',
     'prefix': '.',
 }
 
