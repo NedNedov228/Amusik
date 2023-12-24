@@ -10,7 +10,11 @@ import threading
 import os
 import shutil
 import sys
+import atexit
 import subprocess as sp
+from dotenv import load_dotenv
+
+
 
 queues = {} # {server_id: [(vid_file, info), ...]}ч
 
@@ -19,10 +23,18 @@ queue  = [] # [(vid_file, info), ...]
 connection = None
 
 currently_playing = None
+currently_playing_index = 0
+
 currently_active_message = None
 
+
+#  add token from environmental variables 
+
+load_dotenv()
+token = os.environ.get('DISCORD_BOT_TOKEN')
+
 config = {
-    'token': '-Token-',
+    'token': token,
     'prefix': '.',
 }
 
@@ -60,20 +72,20 @@ async def mon(ctx):
 # async def hello(ctx):
 #     await ctx.send("Hello")
 
-@bot.command(name="queue", help = "Показывает пинг бота")
-async def queue_command(ctx, *args):
-    global queue
-    global currently_playing
-    if len(args) != 1:
-        await ctx.send("Invalid arguments")
-        return
-    if args[0] == "clear":
-        queue.clear()
-        await ctx.message.add_reaction("\u2705")
-        for f in os.listdir(f'./dl/{ctx.guild.id}'):
-            if(f'./dl/{ctx.guild.id}/{f}' != currently_playing[0]):
-                os.remove(f'./dl/{ctx.guild.id}/{f}')
-        return
+# @bot.command(name="queue", help = "Показывает пинг бота")
+# async def queue_command(ctx, *args):
+#     global queue
+#     global currently_playing
+#     if len(args) != 1:
+#         await ctx.send("Invalid arguments")
+#         return
+#     if args[0] == "clear":
+#         queue.clear()
+#         await ctx.message.add_reaction("\u2705")
+#         for f in os.listdir(f'./dl/{ctx.guild.id}'):
+#             if(f'./dl/{ctx.guild.id}/{f}' != currently_playing[0]):
+#                 os.remove(f'./dl/{ctx.guild.id}/{f}')
+#         return
     
 @bot.command(help = "Показывает пинг бота")
 async def join(ctx):
@@ -94,12 +106,24 @@ async def skip(ctx: commands.Context):
         ctx.voice_client.stop()
     # if currently_active_message is not None:
     #     currently_active_message.delete()
-
+@bot.command(name='prev')
+async def prev(ctx: commands.Context):
+    global currently_playing_index
+    global currently_playing
+    global queue
+    if currently_playing_index > 1:
+        currently_playing_index -= 2
+        currently_playing = queue[currently_playing_index]
+        await ctx.invoke(bot.get_command('skip'))
+    else:
+        await ctx.send('No previous song')
+        
 async def run_queue(ctx: commands.Context):
     global connection
     global loopedCurr
     global queue
     global currently_playing
+    global currently_playing_index
     global currently_active_message
     while 1:
         if len(queue) > 0 or loopedCurr:
@@ -107,14 +131,46 @@ async def run_queue(ctx: commands.Context):
                 if loopedCurr: 
                     path , info = currently_playing
                 else:
-                    path, info = queue.pop(0)
+                    path, info = queue[currently_playing_index]
                     currently_playing = (path, info)
+                    currently_playing_index += 1
                 if currently_active_message is not None:
                     await currently_active_message.delete()
                 connection.play(discord.FFmpegOpusAudio(path))
                 embed = f.createEmbed(info)
                 currently_active_message = await ctx.send(embed=embed)
         await asyncio.sleep(1)
+
+@bot.command(name='queue', aliases=['q'])
+async def queue_command(ctx: commands.Context, *args):
+    if len(args) == 0:
+        await ctx.send('No arguments')
+        return
+    # if args[0] == 'clear':
+    #     await ctx.invoke(bot.get_command('clear'))
+    #     return
+    if args[0] == 'list':
+        # create discord embed object
+        embed = discord.Embed(title='Queue')
+        # add fields
+        for i, (path, info) in enumerate(queue):
+            embed.add_field(name=f'{i+1}. {info["title"]}', value=f'Duration: {info["duration"]}' , inline=False)
+        # send embed
+        await ctx.send(embed=embed)
+        
+        return
+
+# @bot.command(name='pause')
+# async def pause(ctx, *args):
+#     if ctx.voice_client is None:
+#         await ctx.send('Not connected')
+#         return
+#     if ctx.voice_client.is_playing() and not ctx.voice_client.is_paused() and( len(args) == 0 or args[0] == 'on'):
+#         ctx.voice_client.pause()
+#     elif ctx.voice_client.is_paused() and ( len(args) == 0 or args[0] == 'off'):
+#         ctx.voice_client.resume()
+#     await ctx.message.add_reaction("\u2705")
+    
 
 @bot.command(name='play', aliases=['p'])
 async def play(ctx: commands.Context, *args):
@@ -161,7 +217,6 @@ async def play(ctx: commands.Context, *args):
 
         path = f'./dl/{server_id}/{info["id"]}.{info["ext"]}'
        
-        await ctx.send(f'Enqueued `{info["title"]}` in position `{len(queue)+1}`.')
         message = await ctx.send('downloading ' + (f'https://youtu.be/{info["id"]}' if will_need_search else f'`{info["title"]}`'))
          
         ydl.download([query])
@@ -169,6 +224,7 @@ async def play(ctx: commands.Context, *args):
         await message.delete()
 
         queue.append((path, info))
+        await ctx.send(f'Enqueued `{info["title"]}` in position `{len(queue)}`.')
         
         try: queues[server_id].append((path, info))
         except KeyError: 
@@ -186,12 +242,14 @@ def get_voice_client_from_channel_id(channel_id: int):
     for voice_client in bot.voice_clients:
         if voice_client.channel.id == channel_id:
             return voice_client
+        
 @bot.command(name='disconnect', aliases=['dc'])
 async def leave(ctx):
     voice_client = ctx.voice_client
     if voice_client.is_connected():
         await voice_client.disconnect()
     await ctx.message.add_reaction("\u2705")
+
 @bot.command(name='loop', aliases=['repeat,rep,lp,rp'])
 async def loop(ctx: commands.Context, *args):
     global loopedCurr
@@ -210,6 +268,8 @@ async def loop(ctx: commands.Context, *args):
     
 bot.load_extension("ccommands")
 bot.run(config['token'])
+
+
 
 # @bot.event()
 # async def on_voice_status_update(member,before,after):
