@@ -30,11 +30,11 @@ currently_active_message = None
 
 #  add token from environmental variables 
 
-load_dotenv()
-token = os.environ.get('DISCORD_BOT_TOKEN')
+# # load_dotenv()
+# token = os.environ.get('DISCORD_BOT_TOKEN')
 
 config = {
-    'token': '-Token-',
+    'token': 'MTEyNjk4NDAzNzI5NTIxNDYzMg.G91GnL.1c_7v2jim6ca0W4HUU0phQR0PPtiumkIY_3ews',
     'prefix': '.',
 }
 
