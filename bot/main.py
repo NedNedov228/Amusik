@@ -173,7 +173,6 @@ async def queue_command(ctx: commands.Context, *args):
 
 @bot.command(name='play')
 async def play(ctx, url):
-    
     channel = ctx.author.voice.channel
     voice_channel = await channel.connect()
 
@@ -187,6 +186,22 @@ async def play(ctx, url):
         'prefer_ffmpeg': True,
     }
 
+    def after(error):
+        restart_playback()
+        print('after')
+        if error:
+            print(f'Error during playback: {error}')
+            # You can add more sophisticated error handling or logging here
+            # For simplicity, let's attempt to restart the playback
+            
+
+    def restart_playback():
+        # Check if the bot is still connected and if it's not playing anything
+        if voice_channel.is_connected() and not voice_channel.is_playing():
+            # Attempt to restart the playback
+            print('Restarting playback')
+            voice_channel.play(discord.FFmpegPCMAudio(audio_stream_url), after=after)
+
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info_dict = ydl.extract_info(url, download=False)
@@ -196,9 +211,14 @@ async def play(ctx, url):
             return
 
     try:
-        voice_channel.play(discord.FFmpegPCMAudio(audio_stream_url))
+        voice_channel.play(discord.FFmpegPCMAudio(audio_stream_url), after=after)
     except Exception as e:
         print(f'Error during playback: {e}')
+        restart_playback()
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    print(f'Error in event {event}: {args} {kwargs}')
 
 
 # @bot.command(name='play', aliases=['p'])
