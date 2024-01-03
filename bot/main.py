@@ -1,7 +1,6 @@
 import functions as f
 import re
 import discord
-from discord.ext import commands
 import yt_dlp
 import urllib
 import asyncio
@@ -11,10 +10,8 @@ import shutil
 import sys
 import atexit
 import subprocess as sp
-#by b1tz0 und FontomO4ka
-# Special thanks to Dzinski!from dotenv import load_dotenv
-
-
+from discord.ext import commands
+from dotenv import load_dotenv
 
 queues = {} # {server_id: [(vid_file, info), ...]}ч
 
@@ -30,11 +27,12 @@ currently_active_message = None
 
 #  add token from environmental variables 
 
-# # load_dotenv()
-# token = os.environ.get('DISCORD_BOT_TOKEN')
+load_dotenv()
+
+DISCORD_BOT_TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 
 config = {
-    'token': 'MTEyNjk4NDAzNzI5NTIxNDYzMg.G91GnL.1c_7v2jim6ca0W4HUU0phQR0PPtiumkIY_3ews',
+    'token': DISCORD_BOT_TOKEN,
     'prefix': '.',
 }
 
@@ -157,8 +155,8 @@ async def queue_command(ctx: commands.Context, *args):
         # add fields
         for i, (path, info) in enumerate(queue):
             embed.add_field(name=f'{i+1}. {info["title"]}', value=f'Duration: {info["duration"]}' , inline=False)
-        # send embed
-        await ctx.send(embed=embed)
+        
+        await ctx.send(embed=embed)  # send embed
         
         return
 
@@ -172,78 +170,107 @@ async def queue_command(ctx: commands.Context, *args):
 #     elif ctx.voice_client.is_paused() and ( len(args) == 0 or args[0] == 'off'):
 #         ctx.voice_client.resume()
 #     await ctx.message.add_reaction("\u2705")
+
+@bot.command(name='play')
+async def play(ctx, url):
     
+    channel = ctx.author.voice.channel
+    voice_channel = await channel.connect()
 
-@bot.command(name='play', aliases=['p'])
-async def play(ctx: commands.Context, *args):
-    global connection
-    global queue
-    # check if no arguments
-    if len(args) == 0:
-        await ctx.send('No arguments')
-        return
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'prefer_ffmpeg': True,
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            info_dict = ydl.extract_info(url, download=False)
+            audio_stream_url = info_dict['url']
+        except Exception as e:
+            print(f'Error extracting info: {e}')
+            return
+
+    try:
+        voice_channel.play(discord.FFmpegPCMAudio(audio_stream_url))
+    except Exception as e:
+        print(f'Error during playback: {e}')
+
+
+# @bot.command(name='play', aliases=['p'])
+# async def play(ctx: commands.Context, *args):
+#     global connection
+#     global queue
+#     # check if no arguments
+#     if len(args) == 0:
+#         await ctx.send('No arguments')
+#         return
     
-    # check if in voice channel
-    if ctx.author.voice is None:
-        await ctx.send('You are not in a voice channel')
-        return
+#     # check if in voice channel
+#     if ctx.author.voice is None:
+#         await ctx.send('You are not in a voice channel')
+#         return
 
-    voice_state = ctx.author.voice
+#     voice_state = ctx.author.voice
 
-    query = ' '.join(args)
+#     query = ' '.join(args)
     
-    will_need_search = not urllib.parse.urlparse(query).scheme
+#     will_need_search = not urllib.parse.urlparse(query).scheme
 
-    server_id = ctx.guild.id
+#     server_id = ctx.guild.id
 
     
-    message = await ctx.send(f'looking for `{query}`...')
-    with yt_dlp.YoutubeDL({'format': 'worstaudio',
-                           'source_address': '0.0.0.0',
-                           'default_search': 'ytsearch',
-                           'outtmpl': '%(id)s.%(ext)s',
-                           'noplaylist': True,
-                           'allow_playlist_files': False,
-                           # 'progress_hooks': [lambda info, ctx=ctx: video_progress_hook(ctx, info)],
-                           # 'match_filter': lambda info, incomplete, will_need_search=will_need_search, ctx=ctx: start_hook(ctx, info, incomplete, will_need_search),
-                           'paths': {'home': f'./dl/{server_id}'}}) as ydl:
+#     message = await ctx.send(f'looking for `{query}`...')
+#     with yt_dlp.YoutubeDL({'format': 'worstaudio',
+#                            'source_address': '0.0.0.0',
+#                            'default_search': 'ytsearch',
+#                            'outtmpl': '%(id)s.%(ext)s',
+#                            'noplaylist': True,
+#                            'allow_playlist_files': False,
+#                            # 'progress_hooks': [lambda info, ctx=ctx: video_progress_hook(ctx, info)],
+#                            # 'match_filter': lambda info, incomplete, will_need_search=will_need_search, ctx=ctx: start_hook(ctx, info, incomplete, will_need_search),
+#                            'paths': {'home': f'./dl/{server_id}'}}) as ydl:
         
-        info = ydl.extract_info(query, download=False)
+#         info = ydl.extract_info(query, download=False)
 
-        await message.delete()
+#         await message.delete()
 
-        if 'entries' in info:
-            info = info['entries'][0]
+#         if 'entries' in info:
+#             info = info['entries'][0]
        
-        info['requester'] = ctx.author
+#         info['requester'] = ctx.author
 
-        path = f'./dl/{server_id}/{info["id"]}.{info["ext"]}'
+#         path = f'./dl/{server_id}/{info["id"]}.{info["ext"]}'
        
-        message = await ctx.send('downloading ' + (f'https://youtu.be/{info["id"]}' if will_need_search else f'`{info["title"]}`'))
+#         message = await ctx.send('downloading ' + (f'https://youtu.be/{info["id"]}' if will_need_search else f'`{info["title"]}`'))
          
-        ydl.download([query])
-        print(f'finished downloading {info["title"]}')
-        await message.delete()
+#         ydl.download([query])
+#         print(f'finished downloading {info["title"]}')
+#         await message.delete()
 
-        queue.append((path, info))
-        await ctx.send(f'Enqueued `{info["title"]}` in position `{len(queue)}`.')
+#         queue.append((path, info))
+#         await ctx.send(f'Enqueued `{info["title"]}` in position `{len(queue)}`.')
         
-        try: queues[server_id].append((path, info))
-        except KeyError: 
-            queues[server_id] = [(path, info)]
-            try: 
-                connection = await voice_state.channel.connect()
-                await run_queue(ctx)
-            except discord.ClientException: 
-                connection = get_voice_client_from_channel_id(voice_state.channel.id)
+#         try: queues[server_id].append((path, info))
+#         except KeyError: 
+#             queues[server_id] = [(path, info)]
+#             try: 
+#                 connection = await voice_state.channel.connect()
+#                 await run_queue(ctx)
+#             except discord.ClientException: 
+#                 connection = get_voice_client_from_channel_id(voice_state.channel.id)
           
-            # await message.delete()
+#             # await message.delete()
             
             
-def get_voice_client_from_channel_id(channel_id: int):
-    for voice_client in bot.voice_clients:
-        if voice_client.channel.id == channel_id:
-            return voice_client
+# def get_voice_client_from_channel_id(channel_id: int):
+#     for voice_client in bot.voice_clients:
+#         if voice_client.channel.id == channel_id:
+#             return voice_client
         
 @bot.command(name='disconnect', aliases=['dc'])
 async def leave(ctx):
